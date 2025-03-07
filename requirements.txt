@@ -1,0 +1,21 @@
+# ウェブアプリケーション
+flask>=2.0.0
+werkzeug>=2.0.0
+
+# 音声処理
+pydub>=0.25.1
+ffmpeg-python>=0.2.0
+
+# API連携
+requests>=2.25.1
+openai>=1.0.0
+langchain>=0.1.0
+langchain-openai>=0.0.5
+tiktoken>=0.5.0
+
+# ドキュメント処理
+python-docx>=0.8.11
+
+# その他
+uuid>=1.30
+python-dotenv>=0.19.2
