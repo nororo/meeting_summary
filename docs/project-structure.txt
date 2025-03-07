@@ -1,35 +1,25 @@
-audio-transcription-app/
-├── README.md                     # プロジェクトの説明と使用方法
-├── requirements.txt              # 必要なPythonパッケージ
-├── app.py                        # メインアプリケーションエントリーポイント
-├── run_in_colab.ipynb            # Google Colabで実行するためのノートブック
-├── static/                       # 静的ファイル
-│   ├── css/                      # スタイルシート
-│   └── js/                       # JavaScriptファイル
-├── templates/                    # HTMLテンプレート
-├── src/                          # ソースコード
-│   ├── api/                      # API連携モジュール
-│   │   ├── __init__.py
-│   │   ├── deepgram_client.py    # Deepgram API連携
-│   │   ├── groq_client.py        # Groq API連携
-│   │   └── azure_client.py       # Azure OpenAI API連携
-│   ├── services/                 # サービス層
-│   │   ├── __init__.py
-│   │   ├── transcription.py      # 文字起こしサービス
-│   │   ├── summarization.py      # 要約サービス
-│   │   ├── qa_service.py         # Q&Aサービス
-│   │   └── template_processor.py # テンプレート処理サービス
-│   ├── utils/                    # ユーティリティ
-│   │   ├── __init__.py
-│   │   ├── audio_splitter.py     # 音声分割ユーティリティ
-│   │   ├── file_utils.py         # ファイル操作ユーティリティ
-│   │   └── security.py           # セキュリティユーティリティ（APIキー管理等）
-│   └── models/                   # データモデル
-│       ├── __init__.py
-│       └── document.py           # 文書データモデル
-└── knowledge/                    # 開発ナレッジベース
-    ├── prompts/                  # LLMプロンプトテンプレート
-    │   ├── summarization/        # 要約用プロンプト
-    │   └── qa/                   # Q&A用プロンプト
-    ├── templates/                # 議事録テンプレート例
-    └── docs/                     # 開発ドキュメント
+# プロジェクト構造
+project_root/
+├── app.py                   # メインアプリケーションエントリーポイント
+├── requirements.txt         # 必要なパッケージリスト
+├── setup.py                 # セットアップスクリプト
+├── static/                  # 静的ファイル
+│   ├── css/                 # スタイルシート
+│   ├── js/                  # JavaScriptファイル
+│   └── uploads/             # アップロードされたファイルの一時保存場所
+├── templates/               # HTMLテンプレート
+│   ├── index.html           # メインページ
+│   ├── results.html         # 結果表示ページ
+│   └── components/          # 再利用可能なコンポーネント
+├── modules/                 # 機能モジュール
+│   ├── __init__.py
+│   ├── transcription.py     # 文字起こし機能
+│   ├── llm_processing.py    # LLM処理（要約・Q&A）
+│   ├── template_handler.py  # 議事録テンプレート処理
+│   ├── file_handler.py      # ファイル管理
+│   └── download_handler.py  # ダウンロード処理
+└── utils/                   # ユーティリティ
+    ├── __init__.py
+    ├── api_utils.py         # API連携用ユーティリティ
+    ├── audio_utils.py       # 音声処理ユーティリティ
+    └── docx_utils.py        # Word文書処理ユーティリティ
