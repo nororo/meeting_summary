@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>音声文字起こし・要約アプリ</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- カスタムCSS -->
+    <style>
+        body {
+            font-family: 'Hiragino Kaku Gothic Pro', 'Meiryo', sans-serif;
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+            background-color: #f8f9fa;
+        }
+        .card {
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .card-header {
+            background-color: #f1f8ff;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 1rem 0;
+        }
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+        }
+        #transcription-result, #summary-result, #qa-result {
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+            padding: 1rem;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 0.25rem;
+        }
+        .tab-content {
+            padding-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center mb-4">音声文字起こし・要約アプリ</h1>
+        
+        <div class="card mb-3">
+            <div class="card-header">
+                <h2 class="h5 mb-0">ファイルアップロード</h2>
+            </div>
+            <div class="card-body">
+                <form id="upload-form">
+                    <div class="mb-3">
+                        <label for="audio-file" class="form-label">音声ファイル</label>
+                        <input type="file" class="form-control" id="audio-file" name="audio_file" accept="audio/*" required>
+                        <div class="form-text">サポートされている形式: mp3, wav, m4a など</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="template-file" class="form-label">議事録テンプレート（任意）</label>
+                        <input type="file" class="form-control" id="template-file" name="template_file" accept=".docx">
+                        <div class="form-text">Word形式(.docx)のテンプレートをアップロードしてください</div>
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="upload-btn">アップロード</button>
+                </form>
+                
+                <div class="loading" id="upload-loading">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p>ファイルをアップロード中...</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- タブメニュー -->
+        <ul class="nav nav-tabs" id="myTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="transcription-tab" data-bs-toggle="tab" data-bs-target="#transcription" type="button" role="tab" aria-controls="transcription" aria-selected="true">文字起こし</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="summary-tab" data-bs-toggle="tab" data-bs-target="#summary" type="button" role="tab" aria-controls="summary" aria-selected="false">要約</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="qa-tab" data-bs-toggle="tab" data-bs-target="#qa" type="button" role="tab" aria-controls="qa" aria-selected="false">質疑応答</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="download-tab" data-bs-toggle="tab" data-bs-target="#download" type="button" role="tab" aria-controls="download" aria-selected="false">ダウンロード</button>
+            </li>
+        </ul>
+        
+        <!-- タブコンテンツ -->
+        <div class="tab-content" id="myTabContent">
+            <!-- 文字起こしタブ -->
+            <div class="tab-pane fade show active" id="transcription" role="tabpanel" aria-labelledby="transcription-tab">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="h5 mb-0">音声文字起こし</h2>
+                    </div>
+                    <div class="card-body">
+                        <form id="transcription-form">
+                            <div class="mb-3">
+                                <label class="form-label">APIの選択</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="transcription-api" id="deepgram-api" value="deepgram" checked>
+                                    <label class="form-check-label" for="deepgram-api">
+                                        Deepgram API
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="transcription-api" id="groq-api" value="groq">
+                                    <label class="form-check-label" for="groq-api">
+                                        Groq Whisper API
+                                    </label>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary" id="transcribe-btn" disabled>文字起こしを開始</button>
+                        </form>
+                        
+                        <div class="loading" id="transcription-loading">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p>文字起こし処理中...</p>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <h3 class="h6">文字起こし結果</h3>
+                            <div id="transcription-result" class="d-none"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 要約タブ -->
+            <div class="tab-pane fade" id="summary" role="tabpanel" aria-labelledby="summary-tab">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="h5 mb-0">文字起こしテキストの要約</h2>
+                    </div>
+                    <div class="card-body">
+                        <form id="summary-form">
+                            <div class="mb-3">
+                                <label class="form-label">APIの選択</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="summary-api" id="azure-api" value="azure" checked>
+                                    <label class="form-check-label" for="azure-api">
+                                        Azure OpenAI API
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="summary-api" id="groq-llm-api" value="groq">
+                                    <label class="form-check-label" for="groq-llm-api">
+                                        Groq API
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3" id="groq-model-selection" style="display: none;">
+                                <label class="form-label">モデルの選択</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="groq-model" id="llama3-model" value="llama3" checked>
+                                    <label class="form-check-label" for="llama3-model">
+                                        LLama 3.3
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="groq-model" id="gemma2-model" value="gemma2">
+                                    <label class="form-check-label" for="gemma2-model">
+                                        Gemma-2
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">要約方法</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="summary-method" id="refine-method" value="refine" checked>
+                                    <label class="form-check-label" for="refine-method">
+                                        Refine (より精度高い要約)
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="summary-method" id="map-reduce-method" value="map_reduce">
+                                    <label class="form-check-label" for="map-reduce-method">
+                                        Map-Reduce (より速い要約)
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary" id="summarize-btn" disabled>要約を開始</button>
+                        </form>
+                        
+                        <div class="loading" id="summary-loading">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p>要約処理中...</p>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <h3 class="h6">要約結果</h3>
+                            <div id="summary-result" class="d-none"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 質疑応答タブ -->
+            <div class="tab-pane fade" id="qa" role="tabpanel" aria-labelledby="qa-tab">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="h5 mb-0">文字起こしテキストへの質問</h2>
+                    </div>
+                    <div class="card-body">
+                        <form id="qa-form">
+                            <div class="mb-3">
+                                <label for="question" class="form-label">質問</label>
+                                <input type="text" class="form-control" id="question" placeholder="例: この会議の主な議題は何ですか？" required>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">APIの選択</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="qa-api" id="qa-azure-api" value="azure" checked>
+                                    <label class="form-check-label" for="qa-azure-api">
+                                        Azure OpenAI API
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="qa-api" id="qa-groq-api" value="groq">
+                                    <label class="form-check-label" for="qa-groq-api">
+                                        Groq API
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3" id="qa-groq-model-selection" style="display: none;">
+                                <label class="form-label">モデルの選択</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="qa-groq-model" id="qa-llama3-model" value="llama3" checked>
+                                    <label class="form-check-label" for="qa-llama3-model">
+                                        LLama 3.3
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="qa-groq-model" id="qa-gemma2-model" value="gemma2">
+                                    <label class="form-check-label" for="qa-gemma2-model">
+                                        Gemma-2
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary" id="qa-btn" disabled>質問する</button>
+                        </form>
+                        
+                        <div class="loading" id="qa-loading">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p>質問処理中...</p>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <h3 class="h6">質問と回答の履歴</h3>
+                            <div id="qa-history"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ダウンロードタブ -->
+            <div class="tab-pane fade" id="download" role="tabpanel" aria-labelledby="download-tab">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="h5 mb-0">結果のダウンロード</h2>
+                    </div>
+                    <div class="card-body">
+                        <form id="download-form">
+                            <div class="mb-3">
+                                <label class="form-label">出力形式</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="output-format" id="docx-format" value="docx" checked>
+                                    <label class="form-check-label" for="docx-format">
+                                        Word文書 (.docx)
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="output-format" id="txt-format" value="txt">
+                                    <label class="form-check-label" for="txt-format">
+                                        テキストファイル (.txt)
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="output-format" id="json-format" value="json">
+                                    <label class="form-check-label" for="json-format">
+                                        JSONファイル (.json)
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3 form-check">
+                                <input type="checkbox" class="form-check-input" id="use-template" checked>
+                                <label class="form-check-label" for="use-template">テンプレートを使用する（アップロード済みの場合）</label>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary" id="download-btn" disabled>レポート生成</button>
+                        </form>
+                        
+                        <div class="loading" id="download-loading">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p>レポート生成中...</p>
+                        </div>
+                        
+                        <div class="mt-3" id="download-result" style="display: none;">
+                            <div class="alert alert-success">
+                                <h3 class="h6">レポートが生成されました</h3>
+                                <a href="#" id="download-link" class="btn btn-success mt-2">ダウンロード</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
+    <!-- アプリケーションJavaScript -->
+    <script>
+        // グローバル変数
+        let audioPath = null;
+        let templatePath = null;
+        let transcriptionText = null;
+        let summaryText = null;
+        let qaData = [];
+        
+        // DOMが読み込まれたら実行
+        $(document).ready(function() {
+            // ファイルアップロードフォームの送信
+            $('#upload-form').on('submit', function(e) {
+                e.preventDefault();
+                
+                // フォームデータの準備
+                const formData = new FormData();
+                const audioFile = $('#audio-file')[0].files[0];
+                const templateFile = $('#template-file')[0].files[0];
+                
+                if (!audioFile) {
+                    alert('音声ファイルを選択してください');
+                    return;
+                }
+                
+                formData.append('audio_file', audioFile);
+                if (templateFile) {
+                    formData.append('template_file', templateFile);
+                }
+                
+                // ローディング表示
+                $('#upload-btn').prop('disabled', true);
+                $('#upload-loading').show();
+                
+                // ファイルアップロード
+                $.ajax({
+                    url: '/upload',
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(response) {
+                        audioPath = response.audio_path;
+                        templatePath = response.template_path;
+                        
+                        // ボタンを有効化
+                        $('#transcribe-btn').prop('disabled', false);
+                        
+                        alert('ファイルのアップロードが完了しました。文字起こしを開始してください。');
+                    },
+                    error: function(xhr, status, error) {
+                        alert('ファイルのアップロードに失敗しました: ' + (xhr.responseJSON ? xhr.responseJSON.error : error));
+                    },
+                    complete: function() {
+                        $('#upload-btn').prop('disabled', false);
+                        $('#upload-loading').hide();
+                    }
+                });
+            });
+            
+            // 文字起こしフォームの送信
+            $('#transcription-form').on('submit', function(e) {
+                e.preventDefault();
+                
+                if (!audioPath) {
+                    alert('先に音声ファイルをアップロードしてください');
+                    return;
+                }
+                
+                // APIの選択を取得
+                const apiChoice = $('input[name="transcription-api"]:checked').val();
+                
+                // ローディング表示
+                $('#transcribe-btn').prop('disabled', true);
+                $('#transcription-loading').show();
+                
+                // 文字起こしリクエスト
+                $.ajax({
+                    url: '/transcribe',
+                    type: 'POST',
+                    data: JSON.stringify({
+                        audio_path: audioPath,
+                        api_choice: apiChoice
+                    }),
+                    contentType: 'application/json',
+                    success: function(response) {
+                        transcriptionText = response.transcription;
+                        
+                        // 結果を表示
+                        $('#transcription-result').text(transcriptionText).removeClass('d-none');
+                        
+                        // 要約と質問ボタンを有効化
+                        $('#summarize-btn').prop('disabled', false);
+                        $('#qa-btn').prop('disabled', false);
+                        $('#download-btn').prop('disabled', false);
+                        
+                        alert('文字起こしが完了しました。');
+                    },
+                    error: function(xhr, status, error) {
+                        alert('文字起こしに失敗しました: ' + (xhr.responseJSON ? xhr.responseJSON.error : error));
+                    },
+                    complete: function() {
+                        $('#transcribe-btn').prop('disabled', false);
+                        $('#transcription-loading').hide();
+                    }
+                });
+            });
+            
+            // 要約フォームの送信
+            $('#summary-form').on('submit', function(e) {
+                e.preventDefault();
+                
+                if (!transcriptionText) {
+                    alert('先に文字起こしを完了させてください');
+                    return;
+                }
+                
+                // APIとメソッドの選択を取得
+                const apiChoice = $('input[name="summary-api"]:checked').val();
+                const method = $('input[name="summary-method"]:checked').val();
+                const modelType = $('input[name="groq-model"]:checked').val();
+                
+                // ローディング表示
+                $('#summarize-btn').prop('disabled', true);
+                $('#summary-loading').show();
+                
+                // 要約リクエスト
+                $.ajax({
+                    url: '/summarize',
+                    type: 'POST',
+                    data: JSON.stringify({
+                        text: transcriptionText,
+                        api_choice: apiChoice,
+                        method: method,
+                        model_type: modelType
+                    }),
+                    contentType: 'application/json',
+                    success: function(response) {
+                        summaryText = response.summary;
+                        
+                        // 結果を表示
+                        $('#summary-result').text(summaryText).removeClass('d-none');
+                        
+                        alert('要約が完了しました。');
+                    },
+                    error: function(xhr, status, error) {
+                        alert('要約に失敗しました: ' + (xhr.responseJSON ? xhr.responseJSON.error : error));
+                    },
+                    complete: function() {
+                        $('#summarize-btn').prop('disabled', false);
+                        $('#summary-loading').hide();
+                    }
+                });
+            });
+            
+            // 質疑応答フォームの送信
+            $('#qa-form').on('submit', function(e) {
+                e.preventDefault();
+                
+                if (!transcriptionText) {
+                    alert('先に文字起こしを完了させてください');
+                    return;
+                }
+                
+                const question = $('#question').val();
+                if (!question) {
+                    alert('質問を入力してください');
+                    return;
+                }
+                
+                // APIとモデルの選択を取得
+                const apiChoice = $('input[name="qa-api"]:checked').val();
+                const modelType = $('input[name="qa-groq-model"]:checked').val();
+                
+                // ローディング表示
+                $('#qa-btn').prop('disabled', true);
+                $('#qa-loading').show();
+                
+                // 質疑応答リクエスト
+                $.ajax({
+                    url: '/qa',
+                    type: 'POST',
+                    data: JSON.stringify({
+                        text: transcriptionText,
+                        question: question,
+                        api_choice: apiChoice,
+                        model_type: modelType
+                    }),
+                    contentType: 'application/json',
+                    success: function(response) {
+                        const answer = response.answer;
+                        
+                        // 質疑応答データを保存
+                        qaData.push({
+                            question: question,
+                            answer: answer
+                        });
+                        
+                        // 質疑応答履歴を更新
+                        updateQAHistory();
+                        
+                        // 質問フィールドをクリア
+                        $('#question').val('');
+                        
+                        alert('質問への回答が完了しました。');
+                    },
+                    error: function(xhr, status, error) {
+                        alert('質問処理に失敗しました: ' + (xhr.responseJSON ? xhr.responseJSON.error : error));
+                    },
+                    complete: function() {
+                        $('#qa-btn').prop('disabled', false);
+                        $('#qa-loading').hide();
+                    }
+                });
+            });
+            
+            // ダウンロードフォームの送信
+            $('#download-form').on('submit', function(e) {
+                e.preventDefault();
+                
+                if (!transcriptionText) {
+                    alert('先に文字起こしを完了させてください');
+                    return;
+                }
+                
+                // 出力形式とテンプレート使用の選択を取得
+                const outputFormat = $('input[name="output-format"]:checked').val();
+                const useTemplate = $('#use-template').is(':checked');
+                
+                // ローディング表示
+                $('#download-btn').prop('disabled', true);
+                $('#download-loading').show();
+                
+                // レポート生成リクエスト
+                $.ajax({
+                    url: '/generate_report',
+                    type: 'POST',
+                    data: JSON.stringify({
+                        transcription: transcriptionText,
+                        summary: summaryText,
+                        qa_data: qaData,
+                        template_path: useTemplate ? templatePath : null,
+                        output_format: outputFormat
+                    }),
+                    contentType: 'application/json',
+                    success: function(response) {
+                        // ダウンロードリンクを設定
+                        $('#download-link').attr('href', '/download/' + response.report_path);
+                        $('#download-result').show();
+                        
+                        alert('レポートの生成が完了しました。ダウンロードボタンをクリックしてダウンロードしてください。');
+                    },
+                    error: function(xhr, status, error) {
+                        alert('レポート生成に失敗しました: ' + (xhr.responseJSON ? xhr.responseJSON.error : error));
+                    },
+                    complete: function() {
+                        $('#download-btn').prop('disabled', false);
+                        $('#download-loading').hide();
+                    }
+                });
+            });
+            
+            // Groq APIの選択変更時の処理
+            $('input[name="summary-api"]').on('change', function() {
+                if ($(this).val() === 'groq') {
+                    $('#groq-model-selection').show();
+                } else {
+                    $('#groq-model-selection').hide();
+                }
+            });
+            
+            $('input[name="qa-api"]').on('change', function() {
+                if ($(this).val() === 'groq') {
+                    $('#qa-groq-model-selection').show();
+                } else {
+                    $('#qa-groq-model-selection').hide();
+                }
+            });
+            
+            // 質疑応答履歴を更新する関数
+            function updateQAHistory() {
+                const $history = $('#qa-history');
+                $history.empty();
+                
+                if (qaData.length === 0) {
+                    $history.append('<p>まだ質問はありません</p>');
+                    return;
+                }
+                
+                qaData.forEach((qa, index) => {
+                    const $qaCard = $(`
+                        <div class="card mb-2">
+                            <div class="card-header bg-light">
+                                <strong>Q${index + 1}:</strong> ${qa.question}
+                            </div>
+                            <div class="card-body">
+                                <strong>A${index + 1}:</strong> ${qa.answer}
+                            </div>
+                        </div>
+                    `);
+                    
+                    $history.append($qaCard);
+                });
+            }
+            
+            // 初期化時に質疑応答履歴を更新
+            updateQAHistory();
+        });
+    </script>
+</body>
+</html>
