@@ -197,4 +197,4 @@ def question_answering(text, question, api_choice='azure', model_type='llama3'):
         return result['output_text']
     
     except Exception as e:
-        raise Exception(f"質疑応答処理中にエラーが
+        raise Exception(f"質疑応答処理中にエラーが発生しました: {str(e)}")
