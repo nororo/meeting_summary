@@ -34,7 +34,6 @@ def save_uploaded_file(file_obj, upload_folder):
     
     # 相対パスを返す
     return os.path.join(os.path.basename(upload_folder), unique_filename)
-
 def get_file_path(relative_path):
     """
     相対パスから完全なファイルパスを取得
@@ -48,12 +47,37 @@ def get_file_path(relative_path):
     # ベースディレクトリを取得
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     
-    # 完全なパスを生成
-    full_path = os.path.join(base_dir, relative_path)
+    # パスの修正：uploads/ を static/uploads/ に変換
+    if relative_path.startswith('uploads/'):
+        relative_path = 'static/' + relative_path
     
-    # パスが存在しない場合はエラー
+    # 完全なパスを生成
+    if os.path.isabs(relative_path):
+        full_path = relative_path
+    else:
+        full_path = os.path.join(base_dir, relative_path)
+    
+    # Colabの場合は /content ディレクトリも考慮
     if not os.path.exists(full_path):
-        raise FileNotFoundError(f"ファイルが見つかりません: {full_path}")
+        # Google Colabの場合は /content から始まるパスの可能性がある
+        colab_path = os.path.join('/content', 'meeting_summary', relative_path)
+        if os.path.exists(colab_path):
+            return colab_path
+            
+        # static/uploads が含まれていない場合の対応
+        if 'static/uploads' not in relative_path and 'uploads/' in relative_path:
+            alternative_path = relative_path.replace('uploads/', 'static/uploads/')
+            full_alt_path = os.path.join(base_dir, alternative_path)
+            if os.path.exists(full_alt_path):
+                return full_alt_path
+                
+            # Colab環境用の代替パス
+            colab_alt_path = os.path.join('/content', 'meeting_summary', alternative_path)
+            if os.path.exists(colab_alt_path):
+                return colab_alt_path
+    
+        # それでも見つからない場合はエラー
+        raise FileNotFoundError(f"ファイルが見つかりません: {full_path} (試したパス: {colab_path})")
     
     return full_path
 
