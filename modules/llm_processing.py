@@ -6,8 +6,9 @@ from openai import AzureOpenAI
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.chains.summarize import load_summarize_chain
 from langchain.chains.question_answering import load_qa_chain
-from langchain_openai import AzureChatOpenAI, ChatGroq
-from langchain_core.prompts import PromptTemplate
+from langchain_openai import AzureChatOpenAI
+# Groq用のインポートを変更
+from langchain_groq import ChatGroq
 
 # 最大トークン数
 MAX_TOKENS = 4000
