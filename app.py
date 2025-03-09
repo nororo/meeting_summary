@@ -193,70 +193,36 @@ def qa():
 @app.route('/generate_report', methods=['POST'])
 def generate_report():
     """議事録生成処理"""
-    print("===== 議事録生成処理を開始 =====")
     data = request.json
-    print(f"リクエストデータ: {data}")
-    
     transcription = data.get('transcription')
     summary = data.get('summary')
     qa_data = data.get('qa_data', [])
     template_path = data.get('template_path')
-    output_format = data.get('output_format', 'docx')
-    
-    print(f"テンプレートパス: {template_path}")
-    print(f"出力フォーマット: {output_format}")
+    api_choice = data.get('api_choice', 'azure')  # デフォルトはAzure OpenAI
+    model_type = data.get('model_type', 'llama3')  # デフォルトはLLama 3.3
     
     if not transcription:
-        print("エラー: 文字起こしデータがありません")
         return jsonify({'error': '文字起こしデータがありません'}), 400
     
     try:
-        # テンプレートの処理またはダウンロードファイル生成
+        # テンプレートがある場合は処理
         if template_path:
-            print(f"テンプレートを使用した議事録生成を開始")
-            try:
-                template_full_path = get_file_path(template_path)
-                print(f"テンプレートの完全パス: {template_full_path}")
-                print(f"テンプレートファイルの存在確認: {os.path.exists(template_full_path)}")
-                
-                report_path = process_template(
-                    template_full_path,
-                    transcription=transcription,
-                    summary=summary,
-                    qa_data=qa_data
-                )
-                print(f"テンプレート処理後のパス: {report_path}")
-            except Exception as template_error:
-                import traceback
-                print(f"テンプレート処理中にエラー: {str(template_error)}")
-                traceback.print_exc()
-                # テンプレート処理に失敗した場合は、通常のテキスト出力にフォールバック
-                print("テキスト出力にフォールバックします")
-                report_path = generate_download(
-                    transcription, 
-                    summary, 
-                    qa_data,
-                    output_format=output_format
-                )
+            report_path = process_template(
+                get_file_path(template_path),
+                transcription=transcription,
+                summary=summary,
+                qa_data=qa_data,
+                api_choice=api_choice,
+                model_type=model_type
+            )
         else:
             # テンプレートがない場合は単純なテキスト出力
-            print(f"テンプレートなしでの出力生成を開始 (フォーマット: {output_format})")
             report_path = generate_download(
                 transcription, 
                 summary, 
                 qa_data,
-                output_format=output_format
+                output_format='txt'
             )
-            print(f"生成されたレポートパス: {report_path}")
-        
-        # 生成されたファイルの存在確認
-        try:
-            full_report_path = get_file_path(report_path)
-            print(f"レポートの完全パス: {full_report_path}")
-            print(f"レポートファイルの存在確認: {os.path.exists(full_report_path)}")
-            print(f"レポートファイルサイズ: {os.path.getsize(full_report_path) if os.path.exists(full_report_path) else 'ファイルが存在しません'}")
-        except Exception as path_error:
-            print(f"レポートパスの解決中にエラー: {str(path_error)}")
         
         return jsonify({
             'status': 'success',
@@ -264,10 +230,6 @@ def generate_report():
         })
     
     except Exception as e:
-        import traceback
-        print(f"議事録生成中にエラーが発生しました: {str(e)}")
-        print("詳細なエラー情報:")
-        traceback.print_exc()
         return jsonify({'error': f'議事録生成中にエラーが発生しました: {str(e)}'}), 500
 
 @app.route('/download/<path:filename>', methods=['GET'])
