@@ -9,6 +9,8 @@ from langchain.chains.question_answering import load_qa_chain
 from langchain_openai import AzureChatOpenAI
 # Groq用のインポートを変更
 from langchain_groq import ChatGroq
+# PromptTemplateのインポートを追加
+from langchain_core.prompts import PromptTemplate
 
 # 最大トークン数
 MAX_TOKENS = 4000
@@ -35,17 +37,23 @@ def get_azure_llm():
     """Azure OpenAIのLLMを取得"""
     api_key = os.environ.get("AZURE_OPENAI_KEY")
     api_endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT")
+    api_version = os.environ.get("AZURE_OPENAI_API_VERSION", "2023-05-15")  # デフォルトバージョンを設定
     
     if not api_key or not api_endpoint:
-        raise Exception("Azure OpenAI APIの設定が不足しています")
+        raise Exception(f"Azure OpenAI APIの設定が不足しています: キー={bool(api_key)}, エンドポイント={bool(api_endpoint)}")
+    
+    # デプロイメント名のチェック
+    deployment_name = os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-4o")  # デフォルト名
+    
+    print(f"Azure OpenAI設定: エンドポイント={api_endpoint}, バージョン={api_version}, デプロイメント={deployment_name}")
     
     return AzureChatOpenAI(
         openai_api_key=api_key,
         azure_endpoint=api_endpoint,
-        azure_deployment="gpt-4-turbo",
+        azure_deployment=deployment_name,
+        api_version=api_version,  # API バージョンを追加
         temperature=0.5
     )
-
 def get_groq_llm(model_type):
     """Groq APIのLLMを取得"""
     api_key = os.environ.get("GROQ_API_KEY")
@@ -66,7 +74,6 @@ def get_groq_llm(model_type):
         model_name=model_name,
         temperature=0.5
     )
-
 def summarize_text(text, api_choice='azure', method='refine', model_type='llama3'):
     """
     テキストを要約する
@@ -88,15 +95,9 @@ def summarize_text(text, api_choice='azure', method='refine', model_type='llama3
         from langchain_core.documents import Document
         docs = [Document(page_content=t) for t in docs]
         
-        # LLMを選択
-        if api_choice.lower() == 'azure':
-            llm = get_azure_llm()
-        elif api_choice.lower() == 'groq':
-            llm = get_groq_llm(model_type)
-        else:
-            raise ValueError(f"不明なAPI選択: {api_choice}")
+        # プロンプトテンプレート
+        # 冗長なインポートは削除（ファイルの先頭で既にインポート済み）
         
-        # プロンプトテンプレートを作成
         map_template = """次の文書を要約してください:
         {text}
         
@@ -113,7 +114,39 @@ def summarize_text(text, api_choice='azure', method='refine', model_type='llama3
         
         combine_prompt = PromptTemplate.from_template(combine_template)
         
+        # LLMを選択
+        llm = None
+        try:
+            if api_choice.lower() == 'azure':
+                print("Azure OpenAI APIを使用します")
+                llm = get_azure_llm()
+            elif api_choice.lower() == 'groq':
+                print(f"Groq APIを使用します (モデル: {model_type})")
+                llm = get_groq_llm(model_type)
+            else:
+                raise ValueError(f"不明なAPI選択: {api_choice}")
+        except Exception as llm_error:
+            print(f"選択されたAPI ({api_choice}) の初期化に失敗しました: {str(llm_error)}")
+            print("代替APIを試行します...")
+            
+            # フォールバックオプション
+            if llm is None:
+                # もう一方のAPIを試す
+                try:
+                    if api_choice.lower() == 'azure':
+                        print("フォールバック: Groq APIを使用します")
+                        llm = get_groq_llm('llama3')
+                    else:
+                        print("フォールバック: Azure OpenAI APIを使用します")
+                        llm = get_azure_llm()
+                except Exception as fallback_error:
+                    print(f"フォールバックAPIの初期化にも失敗しました: {str(fallback_error)}")
+            
+            if llm is None:
+                raise Exception("利用可能なLLMがありません。APIキーの設定を確認してください。")
+        
         # 要約チェーンを作成
+        print(f"要約方法: {method}")
         if method == 'map_reduce':
             chain = load_summarize_chain(
                 llm,
@@ -130,11 +163,16 @@ def summarize_text(text, api_choice='azure', method='refine', model_type='llama3
             )
         
         # 要約を実行
+        print("要約チェーンを実行します...")
         result = chain.invoke(docs)
+        print("要約が完了しました")
         
         return result['output_text']
     
     except Exception as e:
+        import traceback
+        print("要約処理中にエラーが発生しました:")
+        traceback.print_exc()
         raise Exception(f"要約処理中にエラーが発生しました: {str(e)}")
 
 def question_answering(text, question, api_choice='azure', model_type='llama3'):
@@ -159,12 +197,35 @@ def question_answering(text, question, api_choice='azure', model_type='llama3'):
         docs = [Document(page_content=t) for t in docs]
         
         # LLMを選択
-        if api_choice.lower() == 'azure':
-            llm = get_azure_llm()
-        elif api_choice.lower() == 'groq':
-            llm = get_groq_llm(model_type)
-        else:
-            raise ValueError(f"不明なAPI選択: {api_choice}")
+        llm = None
+        try:
+            if api_choice.lower() == 'azure':
+                print("Azure OpenAI APIを使用します")
+                llm = get_azure_llm()
+            elif api_choice.lower() == 'groq':
+                print(f"Groq APIを使用します (モデル: {model_type})")
+                llm = get_groq_llm(model_type)
+            else:
+                raise ValueError(f"不明なAPI選択: {api_choice}")
+        except Exception as llm_error:
+            print(f"選択されたAPI ({api_choice}) の初期化に失敗しました: {str(llm_error)}")
+            print("代替APIを試行します...")
+            
+            # フォールバックオプション
+            if llm is None:
+                # もう一方のAPIを試す
+                try:
+                    if api_choice.lower() == 'azure':
+                        print("フォールバック: Groq APIを使用します")
+                        llm = get_groq_llm('llama3')
+                    else:
+                        print("フォールバック: Azure OpenAI APIを使用します")
+                        llm = get_azure_llm()
+                except Exception as fallback_error:
+                    print(f"フォールバックAPIの初期化にも失敗しました: {str(fallback_error)}")
+            
+            if llm is None:
+                raise Exception("利用可能なLLMがありません。APIキーの設定を確認してください。")
         
         # QAチェーンを作成
         prompt_template = """以下のコンテキストを使用して、質問に回答してください。
@@ -190,12 +251,17 @@ def question_answering(text, question, api_choice='azure', model_type='llama3'):
         )
         
         # 回答を取得
+        print("質疑応答チェーンを実行します...")
         result = chain.invoke({
             "input_documents": docs,
             "question": question
         })
+        print("質疑応答が完了しました")
         
         return result['output_text']
     
     except Exception as e:
+        import traceback
+        print("質疑応答処理中にエラーが発生しました:")
+        traceback.print_exc()
         raise Exception(f"質疑応答処理中にエラーが発生しました: {str(e)}")
