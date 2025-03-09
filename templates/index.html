@@ -191,7 +191,14 @@
                                     </label>
                                 </div>
                             </div>
-                            
+                            <!-- ここに以下の翻訳オプションを追加 -->
+                            <div class="mb-3 form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="force-japanese-summary" checked>
+                                <label class="form-check-label" for="force-japanese-summary">
+                                    英語の出力を日本語に自動翻訳する
+                                </label>
+                                <div class="form-text">LLMが英語で出力した場合、自動的に日本語に翻訳します</div>
+                            </div>
                             <button type="submit" class="btn btn-primary" id="summarize-btn" disabled>要約を開始</button>
                         </form>
                         
@@ -254,7 +261,15 @@
                                     </label>
                                 </div>
                             </div>
-                            
+                            <!-- ここに以下の翻訳オプションを追加 -->
+                            <div class="mb-3 form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="force-japanese-qa" checked>
+                                <label class="form-check-label" for="force-japanese-qa">
+                                    英語の出力を日本語に自動翻訳する
+                                </label>
+                                <div class="form-text">LLMが英語で出力した場合、自動的に日本語に翻訳します</div>
+                            </div>
+                
                             <button type="submit" class="btn btn-primary" id="qa-btn" disabled>質問する</button>
                         </form>
                         
@@ -444,23 +459,23 @@
             });
             
             // 要約フォームの送信
-            $('#summary-form').on('submit', function(e) {
+             $('#summary-form').on('submit', function(e) {
                 e.preventDefault();
-                
+            
                 if (!transcriptionText) {
                     alert('先に文字起こしを完了させてください');
                     return;
                 }
-                
+            
                 // APIとメソッドの選択を取得
                 const apiChoice = $('input[name="summary-api"]:checked').val();
                 const method = $('input[name="summary-method"]:checked').val();
                 const modelType = $('input[name="groq-model"]:checked').val();
-                
+                const forceJapanese = $('#force-japanese-summary').is(':checked');
+            
                 // ローディング表示
                 $('#summarize-btn').prop('disabled', true);
                 $('#summary-loading').show();
-                
                 // 要約リクエスト
                 $.ajax({
                     url: '/summarize',
@@ -469,15 +484,16 @@
                         text: transcriptionText,
                         api_choice: apiChoice,
                         method: method,
-                        model_type: modelType
+                        model_type: modelType,
+                        force_japanese: forceJapanese
                     }),
                     contentType: 'application/json',
                     success: function(response) {
                         summaryText = response.summary;
-                        
+                    
                         // 結果を表示
                         $('#summary-result').text(summaryText).removeClass('d-none');
-                        
+                    
                         alert('要約が完了しました。');
                     },
                     error: function(xhr, status, error) {
@@ -489,8 +505,7 @@
                     }
                 });
             });
-            
-            // 質疑応答フォームの送信
+
             $('#qa-form').on('submit', function(e) {
                 e.preventDefault();
                 
@@ -508,6 +523,7 @@
                 // APIとモデルの選択を取得
                 const apiChoice = $('input[name="qa-api"]:checked').val();
                 const modelType = $('input[name="qa-groq-model"]:checked').val();
+                const forceJapanese = $('#force-japanese-qa').is(':checked');
                 
                 // ローディング表示
                 $('#qa-btn').prop('disabled', true);
@@ -521,7 +537,8 @@
                         text: transcriptionText,
                         question: question,
                         api_choice: apiChoice,
-                        model_type: modelType
+                        model_type: modelType,
+                        force_japanese: forceJapanese
                     }),
                     contentType: 'application/json',
                     success: function(response) {
