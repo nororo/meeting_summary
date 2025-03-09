@@ -14,8 +14,9 @@ Google Colaboratoryのみで動作確認しています。（2025/3/6時点で�
 
 ### API KEYの設定
 以下のように、シークレットにAPIキーを設定してください。
-![Key]()
-<img src="docs/secret_key_setting_colab.png" width="320px">
+
+
+<img src="docs/secret_key_setting_colab.png" width="640px">
 
 ### APIの発行方法
 #### Deepgram
