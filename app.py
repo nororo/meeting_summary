@@ -175,32 +175,70 @@ def qa():
 @app.route('/generate_report', methods=['POST'])
 def generate_report():
     """議事録生成処理"""
+    print("===== 議事録生成処理を開始 =====")
     data = request.json
+    print(f"リクエストデータ: {data}")
+    
     transcription = data.get('transcription')
     summary = data.get('summary')
     qa_data = data.get('qa_data', [])
     template_path = data.get('template_path')
+    output_format = data.get('output_format', 'docx')
+    
+    print(f"テンプレートパス: {template_path}")
+    print(f"出力フォーマット: {output_format}")
     
     if not transcription:
+        print("エラー: 文字起こしデータがありません")
         return jsonify({'error': '文字起こしデータがありません'}), 400
     
     try:
-        # テンプレートがある場合は処理
+        # テンプレートの処理またはダウンロードファイル生成
         if template_path:
-            report_path = process_template(
-                get_file_path(template_path),
-                transcription=transcription,
-                summary=summary,
-                qa_data=qa_data
-            )
+            print(f"テンプレートを使用した議事録生成を開始")
+            try:
+                template_full_path = get_file_path(template_path)
+                print(f"テンプレートの完全パス: {template_full_path}")
+                print(f"テンプレートファイルの存在確認: {os.path.exists(template_full_path)}")
+                
+                report_path = process_template(
+                    template_full_path,
+                    transcription=transcription,
+                    summary=summary,
+                    qa_data=qa_data
+                )
+                print(f"テンプレート処理後のパス: {report_path}")
+            except Exception as template_error:
+                import traceback
+                print(f"テンプレート処理中にエラー: {str(template_error)}")
+                traceback.print_exc()
+                # テンプレート処理に失敗した場合は、通常のテキスト出力にフォールバック
+                print("テキスト出力にフォールバックします")
+                report_path = generate_download(
+                    transcription, 
+                    summary, 
+                    qa_data,
+                    output_format=output_format
+                )
         else:
             # テンプレートがない場合は単純なテキスト出力
+            print(f"テンプレートなしでの出力生成を開始 (フォーマット: {output_format})")
             report_path = generate_download(
                 transcription, 
                 summary, 
                 qa_data,
-                output_format='txt'
+                output_format=output_format
             )
+            print(f"生成されたレポートパス: {report_path}")
+        
+        # 生成されたファイルの存在確認
+        try:
+            full_report_path = get_file_path(report_path)
+            print(f"レポートの完全パス: {full_report_path}")
+            print(f"レポートファイルの存在確認: {os.path.exists(full_report_path)}")
+            print(f"レポートファイルサイズ: {os.path.getsize(full_report_path) if os.path.exists(full_report_path) else 'ファイルが存在しません'}")
+        except Exception as path_error:
+            print(f"レポートパスの解決中にエラー: {str(path_error)}")
         
         return jsonify({
             'status': 'success',
@@ -208,17 +246,55 @@ def generate_report():
         })
     
     except Exception as e:
+        import traceback
+        print(f"議事録生成中にエラーが発生しました: {str(e)}")
+        print("詳細なエラー情報:")
+        traceback.print_exc()
         return jsonify({'error': f'議事録生成中にエラーが発生しました: {str(e)}'}), 500
 
 @app.route('/download/<path:filename>', methods=['GET'])
 def download(filename):
     """ファイルダウンロード処理"""
+    print(f"ダウンロードリクエスト: {filename}")
+    
     try:
+        # ファイルパスの解決を試みる
+        try:
+            file_path = get_file_path(filename)
+            print(f"解決されたファイルパス: {file_path}")
+            print(f"ファイルの存在確認: {os.path.exists(file_path)}")
+        except Exception as e:
+            print(f"パス解決でエラー: {str(e)}")
+            
+            # 代替パスを試す
+            if not filename.startswith('static/'):
+                alt_path = os.path.join('static', filename)
+                print(f"代替パスを試行: {alt_path}")
+                try:
+                    file_path = get_file_path(alt_path)
+                    print(f"代替パス解決結果: {file_path}")
+                except:
+                    # Google Colab環境の場合は絶対パスを試す
+                    colab_path = os.path.join('/content', 'meeting_summary', 'static', filename)
+                    if os.path.exists(colab_path):
+                        file_path = colab_path
+                        print(f"Colab絶対パスを使用: {file_path}")
+                    else:
+                        raise e
+            else:
+                raise e
+        
+        # ファイルをダウンロード
         return send_file(
-            get_file_path(filename),
-            as_attachment=True
+            file_path,
+            as_attachment=True,
+            download_name=os.path.basename(file_path)
         )
     except Exception as e:
+        import traceback
+        print(f"ダウンロード処理中にエラーが発生しました: {str(e)}")
+        print("詳細なエラー情報:")
+        traceback.print_exc()
         return jsonify({'error': f'ダウンロード処理中にエラーが発生しました: {str(e)}'}), 500
 
 if __name__ == '__main__':
