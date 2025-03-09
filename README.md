@@ -1,7 +1,7 @@
 # このアプリケーションは自律型生成AIエージェントによるアプリケーション作成の実験用です。
 本プロジェクトはその最初の段階として、Claude 3.7 sonnetと人間による統合テストフィードバックにより作成されました。
 次のステージとして、自律型生成AIエージェントのみによる完全な開発を行います。
-Google colaboratoryのみで動作確認しています。
+Google colaboratoryのみで動作確認しています。（2025/3/6時点で、Azure OpenAI APIのMap reduceはエラーが出ています）
 
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1rawlZkhjdfo-YKKbBmxYYbm0EjfjMVRh?usp=sharing)
@@ -11,11 +11,11 @@ Google colaboratoryのみで動作確認しています。
 ### APIの発行方法
 #### Deepgram
 https://deepgram.com/
-2025/3/8時点で$200分のクレジットがもらえ無料で試すことができます。
+2025/3/6時点で$200分のクレジットがもらえ無料で試すことができます。
 
 #### Groq
 https://groq.com/
-2025/3/8時点で無料で試すことができますが、1分及び1日でRate limitがあります。
+2025/3/6時点で無料で試すことができますが、1分及び1日でRate limitがあります。
 
 
 
