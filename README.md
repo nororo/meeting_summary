@@ -1,3 +1,13 @@
+# このアプリケーションは自律型生成AIエージェントによるアプリケーション作成の実験用です。
+本プロジェクトはその最初の段階として、Claude 3.7 sonnetと人間による統合テストフィードバックにより作成されました。
+次のステージとして、自律型生成AIエージェントのみによる完全な開発を行います。
+Google colaboratoryのみで動作確認しています。
+
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1rawlZkhjdfo-YKKbBmxYYbm0EjfjMVRh?usp=sharing)
+
+# <以下は生成されたREADME>
+
 # 音声文字起こし・要約Q&Aアプリケーション
 
 このアプリケーションは音声ファイルから文字起こしを行い、LLMを用いた要約や質疑応答機能を提供するウェブアプリケーションです。
