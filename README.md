@@ -22,6 +22,15 @@ https://groq.com/
 ### テンプレート
 Wordファイルに挿入したい場所に抽出したい内容を{{XXXX}}と記載してください（例 {{宿題}}、{{主題}}、{{決定事項}}など）。LLMによる抽出結果で置換されます。要約を挿入したい場所には{{要約}}と記載してください。
 
+### 出力の利用制限
+こちらのアプリケーションの出力に関して、選択したモデルによって以下の利用制限が生じます。ご確認ください。
+##### Llamaモデルを利用した場合:
+https://github.com/meta-llama/llama-models/blob/main/models/llama3_1/LICENSE
+##### Gemmaモデルを利用した場合:
+https://ai.google.dev/gemma/terms
+##### Azure openAI
+https://openai.com/policies/row-terms-of-use/
+
 
 # <以下は生成されたREADME>
 
