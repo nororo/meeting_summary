@@ -6,6 +6,19 @@ Google colaboratoryのみで動作確認しています。
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1rawlZkhjdfo-YKKbBmxYYbm0EjfjMVRh?usp=sharing)
 
+### 以下のように、シークレットにAPIキーを設定してください。
+![OneBigTable](docs/secret_key_setting_colab.png)
+### APIの発行方法
+#### Deepgram
+https://deepgram.com/
+2025/3/8時点で$200分のクレジットがもらえ無料で試すことができます。
+
+#### Groq
+https://groq.com/
+2025/3/8時点で無料で試すことができますが、1分及び1日でRate limitがあります。
+
+
+
 # <以下は生成されたREADME>
 
 # 音声文字起こし・要約Q&Aアプリケーション
