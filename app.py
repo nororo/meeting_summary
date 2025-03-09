@@ -20,7 +20,7 @@ except ImportError:
 
 # 各モジュールのインポート
 from modules.transcription import transcribe_audio
-from modules.llm_processing import summarize_text, question_answering
+from modules.llm_processing import summarize_text, question_answering, translate_to_japanese
 from modules.template_handler import process_template
 from modules.file_handler import save_uploaded_file, get_file_path
 from modules.download_handler import generate_download
@@ -66,6 +66,7 @@ def upload_file():
         'audio_path': audio_path,
         'template_path': template_path
     })
+
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
     """音声文字起こし処理"""
@@ -116,23 +117,27 @@ def summarize():
     text = data.get('text')
     api_choice = data.get('api_choice', 'azure')  # デフォルトはAzure OpenAI
     method = data.get('method', 'refine')  # デフォルトはrefine
+    model_type = data.get('model_type', 'llama3')  # デフォルトはllama3
+    force_japanese = data.get('force_japanese', True)  # デフォルトは日本語強制
     
-    print(f"要約リクエスト: API={api_choice}, 方法={method}")
-    print(f"Azure OpenAI設定: エンドポイント={os.environ.get('AZURE_OPENAI_ENDPOINT')[:10]}..., キー={os.environ.get('AZURE_OPENAI_KEY')[:5]}...")
-    print(f"Groq設定: キー={os.environ.get('GROQ_API_KEY')[:5]}...")
+    print(f"要約リクエスト: API={api_choice}, 方法={method}, モデル={model_type}, 日本語強制={force_japanese}")
     
     if not text:
         return jsonify({'error': 'テキストが指定されていません'}), 400
     
     try:
         # 要約実行
-        print("要約処理を開始します...")
         summary = summarize_text(
             text, 
             api_choice=api_choice,
-            method=method
+            method=method,
+            model_type=model_type
         )
-        print("要約処理が完了しました")
+        
+        # 日本語への翻訳が必要かチェック（translate_to_japanese関数内で自動判定するが、
+        # force_japaneseフラグがFalseの場合は翻訳しない）
+        if force_japanese:
+            summary = translate_to_japanese(summary, api_choice)
         
         return jsonify({
             'status': 'success',
@@ -142,9 +147,9 @@ def summarize():
     except Exception as e:
         import traceback
         print(f"要約処理中にエラーが発生しました: {str(e)}")
-        print("詳細なエラー情報:")
         traceback.print_exc()
         return jsonify({'error': f'要約処理中にエラーが発生しました: {str(e)}'}), 500
+
 @app.route('/qa', methods=['POST'])
 def qa():
     """質疑応答処理"""
@@ -152,6 +157,11 @@ def qa():
     text = data.get('text')
     question = data.get('question')
     api_choice = data.get('api_choice', 'azure')  # デフォルトはAzure OpenAI
+    model_type = data.get('model_type', 'llama3')  # デフォルトはllama3
+    force_japanese = data.get('force_japanese', True)  # デフォルトは日本語強制
+    
+    print(f"質疑応答リクエスト: API={api_choice}, モデル={model_type}, 日本語強制={force_japanese}")
+    print(f"質問: {question}")
     
     if not text or not question:
         return jsonify({'error': 'テキストまたは質問が指定されていません'}), 400
@@ -161,8 +171,13 @@ def qa():
         answer = question_answering(
             text, 
             question,
-            api_choice=api_choice
+            api_choice=api_choice,
+            model_type=model_type
         )
+        
+        # 日本語への翻訳が必要かチェック
+        if force_japanese:
+            answer = translate_to_japanese(answer, api_choice)
         
         return jsonify({
             'status': 'success',
@@ -170,6 +185,9 @@ def qa():
         })
     
     except Exception as e:
+        import traceback
+        print(f"質疑応答処理中にエラーが発生しました: {str(e)}")
+        traceback.print_exc()
         return jsonify({'error': f'質疑応答処理中にエラーが発生しました: {str(e)}'}), 500
 
 @app.route('/generate_report', methods=['POST'])
