@@ -3,17 +3,20 @@ import tempfile
 from flask import Flask, request, render_template, jsonify, send_file
 from werkzeug.utils import secure_filename
 
-# Google Colabのシークレット機能からAPIキーを取得
+# Google Colabの環境かどうかをチェック
 try:
     from google.colab import userdata
-    # 環境変数にAPIキーを設定
-    os.environ["OPENAI_API_KEY"] = userdata.get("OPENAI_API_KEY")
-    os.environ["DEEPGRAM_API_KEY"] = userdata.get("DEEPGRAM_API_KEY")
-    os.environ["GROQ_API_KEY"] = userdata.get("GROQ_API_KEY")
-    os.environ["AZURE_OPENAI_KEY"] = userdata.get("AZURE_OPENAI_KEY")
-    os.environ["AZURE_OPENAI_ENDPOINT"] = userdata.get("AZURE_OPENAI_ENDPOINT")
+    # Google Colabのシークレット機能からAPIキーを取得
+    os.environ["OPENAI_API_KEY"] = os.environ.get("OPENAI_API_KEY", "")
+    os.environ["DEEPGRAM_API_KEY"] = os.environ.get("DEEPGRAM_API_KEY", "")
+    os.environ["GROQ_API_KEY"] = os.environ.get("GROQ_API_KEY", "")
+    os.environ["AZURE_OPENAI_KEY"] = os.environ.get("AZURE_OPENAI_KEY", "")
+    os.environ["AZURE_OPENAI_ENDPOINT"] = os.environ.get("AZURE_OPENAI_ENDPOINT", "")
+    os.environ["AZURE_OPENAI_DEPLOYMENT"] = os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-4o-mini")
+    os.environ["AZURE_OPENAI_API_VERSION"] = os.environ.get("AZURE_OPENAI_API_VERSION", "2023-05-15")
+    print("Google Colab環境で実行しています。シークレット機能からAPIキーを読み込みました。")
 except ImportError:
-    print("Google Colabの環境ではありません。ローカル環境変数を使用します。")
+    print("ローカル環境で実行しています。.envファイルからAPIキーを読み込みました。")
 
 # 各モジュールのインポート
 from modules.transcription import transcribe_audio
@@ -63,23 +66,36 @@ def upload_file():
         'audio_path': audio_path,
         'template_path': template_path
     })
-
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
     """音声文字起こし処理"""
+    print("===== 文字起こし処理を開始 =====")
     data = request.json
+    print(f"リクエストデータ: {data}")
+    
     audio_path = data.get('audio_path')
     api_choice = data.get('api_choice', 'deepgram')  # デフォルトはDeepgram
     
+    print(f"音声パス: {audio_path}")
+    print(f"API選択: {api_choice}")
+    
     if not audio_path:
+        print("エラー: 音声ファイルのパスが指定されていません")
         return jsonify({'error': '音声ファイルのパスが指定されていません'}), 400
     
     try:
+        # 完全なパスを取得
+        full_path = get_file_path(audio_path)
+        print(f"解決されたファイルパス: {full_path}")
+        print(f"ファイルの存在確認: {os.path.exists(full_path)}")
+        
         # 文字起こし実行
+        print(f"文字起こし開始: {api_choice}")
         transcription = transcribe_audio(
-            get_file_path(audio_path), 
+            full_path, 
             api_choice=api_choice
         )
+        print("文字起こし完了")
         
         return jsonify({
             'status': 'success',
@@ -87,6 +103,10 @@ def transcribe():
         })
     
     except Exception as e:
+        import traceback
+        print(f"文字起こし処理中にエラーが発生しました: {str(e)}")
+        print("詳細なエラー情報:")
+        traceback.print_exc()
         return jsonify({'error': f'文字起こし処理中にエラーが発生しました: {str(e)}'}), 500
 
 @app.route('/summarize', methods=['POST'])
@@ -97,16 +117,22 @@ def summarize():
     api_choice = data.get('api_choice', 'azure')  # デフォルトはAzure OpenAI
     method = data.get('method', 'refine')  # デフォルトはrefine
     
+    print(f"要約リクエスト: API={api_choice}, 方法={method}")
+    print(f"Azure OpenAI設定: エンドポイント={os.environ.get('AZURE_OPENAI_ENDPOINT')[:10]}..., キー={os.environ.get('AZURE_OPENAI_KEY')[:5]}...")
+    print(f"Groq設定: キー={os.environ.get('GROQ_API_KEY')[:5]}...")
+    
     if not text:
         return jsonify({'error': 'テキストが指定されていません'}), 400
     
     try:
         # 要約実行
+        print("要約処理を開始します...")
         summary = summarize_text(
             text, 
             api_choice=api_choice,
             method=method
         )
+        print("要約処理が完了しました")
         
         return jsonify({
             'status': 'success',
@@ -114,8 +140,11 @@ def summarize():
         })
     
     except Exception as e:
+        import traceback
+        print(f"要約処理中にエラーが発生しました: {str(e)}")
+        print("詳細なエラー情報:")
+        traceback.print_exc()
         return jsonify({'error': f'要約処理中にエラーが発生しました: {str(e)}'}), 500
-
 @app.route('/qa', methods=['POST'])
 def qa():
     """質疑応答処理"""
