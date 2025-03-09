@@ -1,130 +1,249 @@
 import os
+import re
 import tempfile
 import docx
 from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 
-def process_template(template_path, transcription=None, summary=None, qa_data=None):
+# 同じディレクトリにあるllm_processingモジュールをインポート
+from modules.llm_processing import get_azure_llm, get_groq_llm
+
+def extract_placeholders(template_path):
     """
-    Wordテンプレートを処理し、文字起こしや要約データを挿入する
+    Wordテンプレートからプレースホルダーを抽出する
+    
+    Args:
+        template_path (str): テンプレートファイルのパス
+        
+    Returns:
+        list: 抽出されたプレースホルダーのリスト
+    """
+    # テンプレートを読み込む
+    doc = docx.Document(template_path)
+    
+    # プレースホルダーを保存するリスト
+    placeholders = []
+    
+    # 正規表現パターン - {{任意の文字}}
+    pattern = r'{{([^{}]+)}}'
+    
+    # すべてのパラグラフを検索
+    for paragraph in doc.paragraphs:
+        matches = re.findall(pattern, paragraph.text)
+        placeholders.extend(matches)
+    
+    # すべてのテーブルを検索
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for paragraph in cell.paragraphs:
+                    matches = re.findall(pattern, paragraph.text)
+                    placeholders.extend(matches)
+    
+    # 重複を除去
+    unique_placeholders = list(set(placeholders))
+    
+    return unique_placeholders
+
+def extract_info_with_llm(transcription, placeholders, api_choice='azure', model_type='llama3'):
+    """
+    文字起こしテキストからプレースホルダーに対応する情報をLLMで抽出する
+    
+    Args:
+        transcription (str): 文字起こしテキスト
+        placeholders (list): プレースホルダーのリスト
+        api_choice (str): 使用するAPI ('azure' または 'groq')
+        model_type (str): Groq使用時のモデルタイプ ('llama3' または 'gemma2')
+        
+    Returns:
+        dict: プレースホルダーとその値のマッピング
+    """
+    # LLMを選択
+    if api_choice.lower() == 'azure':
+        llm = get_azure_llm()
+    elif api_choice.lower() == 'groq':
+        llm = get_groq_llm(model_type)
+    else:
+        raise ValueError(f"不明なAPI選択: {api_choice}")
+    
+    # プロンプトの作成
+    prompt_text = f"""
+文字起こしされた会議の内容から、以下の情報を抽出してください。
+抽出できない場合は「情報なし」と記入してください。
+情報は以下の形式で出力してください。
+
+開催日時: [抽出された開催日時]
+出席者: [抽出された出席者リスト]
+...
+
+以下は文字起こしの内容です:
+{transcription}
+
+抽出すべき情報:
+"""
+    
+    for placeholder in placeholders:
+        prompt_text += f"- {placeholder}\n"
+    
+    # LLMに質問
+    from langchain_core.prompts import PromptTemplate
+    from langchain_core.output_parsers import StrOutputParser
+    
+    prompt = PromptTemplate.from_template(prompt_text)
+    chain = prompt | llm | StrOutputParser()
+    
+    response = chain.invoke({})
+    
+    # 抽出された情報をパースしてディクショナリに変換
+    extracted_info = {}
+    
+    for placeholder in placeholders:
+        # 正規表現パターン - "プレースホルダー: 任意の文字列"
+        pattern = re.compile(f"{placeholder}:\\s*(.+?)(?=\\n\\w+:|$)", re.DOTALL)
+        match = pattern.search(response)
+        
+        if match:
+            # マッチした値を取得し、余分な空白を削除
+            value = match.group(1).strip()
+            extracted_info[placeholder] = value
+        else:
+            # 値が見つからない場合はデフォルト値
+            extracted_info[placeholder] = "情報なし"
+    
+    return extracted_info
+
+def process_template(template_path, transcription=None, summary=None, qa_data=None, api_choice='azure', model_type='llama3'):
+    """
+    Wordテンプレートを処理し、抽出した情報を挿入する
     
     Args:
         template_path (str): テンプレートファイルのパス
         transcription (str): 文字起こしテキスト
         summary (str): 要約テキスト
         qa_data (list): 質疑応答データのリスト
+        api_choice (str): 使用するAPI ('azure' または 'groq')
+        model_type (str): Groq使用時のモデルタイプ ('llama3' または 'gemma2')
         
     Returns:
         str: 生成された文書のパス
     """
     try:
-        print(f"テンプレート処理開始: {template_path}")
-        print(f"テンプレートファイルの存在確認: {os.path.exists(template_path)}")
+        # テンプレートからプレースホルダーを抽出
+        placeholders = extract_placeholders(template_path)
+        print(f"抽出されたプレースホルダー: {placeholders}")
+        
+        # 必要な情報を準備
+        replacements = {}
+        
+        # 「要約」プレースホルダーが存在し、summary引数が与えられている場合
+        if '要約' in placeholders and summary:
+            replacements['要約'] = summary
+            # 処理済みのプレースホルダーを削除
+            if '要約' in placeholders:
+                placeholders.remove('要約')
+        
+        # 残りのプレースホルダーに対応する情報を文字起こしから抽出
+        if transcription and placeholders:
+            extracted_info = extract_info_with_llm(
+                transcription, 
+                placeholders, 
+                api_choice=api_choice, 
+                model_type=model_type
+            )
+            
+            # 抽出された情報をreplacementsに追加
+            replacements.update(extracted_info)
         
         # テンプレートを読み込む
         doc = docx.Document(template_path)
         
-        # テンプレートの構造を分析
-        print("\n===== テンプレート構造の分析 =====")
-        print(f"段落数: {len(doc.paragraphs)}")
-        print(f"テーブル数: {len(doc.tables)}")
+        # テンプレート内のプレースホルダーを置換
+        replace_placeholders_in_document(doc, replacements)
         
-        # 各テーブルの構造を表示
-        for i, table in enumerate(doc.tables):
-            print(f"\nテーブル {i+1}: {len(table.rows)}行 x {len(table.columns)}列")
-            for row_idx, row in enumerate(table.rows):
-                for col_idx, cell in enumerate(row.cells):
-                    cell_text = cell.text.strip()
-                    if "{{" in cell_text and "}}" in cell_text:
-                        print(f"  プレースホルダー発見: 行{row_idx+1}, 列{col_idx+1} - '{cell_text}'")
-        
-        # 段落内のプレースホルダーを確認
-        placeholders_in_paragraphs = []
-        for i, para in enumerate(doc.paragraphs):
-            if "{{" in para.text and "}}" in para.text:
-                print(f"段落 {i+1} にプレースホルダーがあります: '{para.text}'")
-                placeholders_in_paragraphs.append(para.text)
-        
-        print("===== テンプレート分析終了 =====\n")
-        
-        # テーブル内の特定のセルを探して内容を置き換える
-        if summary:
-            print("要約データを挿入")
-            replace_table_content(doc, "{{summary}}", summary)
-        
+        # 文字起こし全文を追加（特定のプレースホルダーがあれば置換、なければ末尾に追加）
         if transcription:
-            print("文字起こしデータを挿入")
-            replace_table_content(doc, "{{transcription}}", transcription)
+            if '文字起こし全文' in placeholders and '文字起こし全文' in replacements:
+                # すでに処理済み
+                pass
+            else:
+                # ドキュメントの末尾に追加
+                doc.add_heading('文字起こし全文', level=1)
+                doc.add_paragraph(transcription)
         
         # Q&Aデータがある場合はテーブルに追加
         if qa_data:
-            print(f"Q&Aデータを挿入 ({len(qa_data)}件)")
             add_qa_table(doc, qa_data)
         
-        # タイムスタンプを生成
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        
-        # 出力ファイル名と保存先を設定
-        output_filename = f'minutes_{timestamp}.docx'
-        
-        # 出力ディレクトリを確保
+        # 一時ファイルとして保存
         output_dir = 'static/uploads'
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
         
-        # 絶対パスと相対パスを生成
-        try:
-            # 現在のファイルの場所を基準にする
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-            parent_dir = os.path.dirname(base_dir)
-            abs_output_path = os.path.join(parent_dir, output_dir, output_filename)
-        except:
-            # 絶対パスの生成に失敗した場合は相対パスをそのまま使用
-            abs_output_path = os.path.join(output_dir, output_filename)
+        output_path = os.path.join(output_dir, 'meeting_minutes.docx')
+        doc.save(output_path)
         
-        relative_output_path = os.path.join(output_dir, output_filename)
-        
-        print(f"出力ファイル情報:")
-        print(f"  ファイル名: {output_filename}")
-        print(f"  絶対パス: {abs_output_path}")
-        print(f"  相対パス: {relative_output_path}")
-        
-        # 処理後のテンプレート構造を確認
-        print("\n===== 処理後のドキュメント確認 =====")
-        placeholders_remaining = []
-        for i, table in enumerate(doc.tables):
-            for row in table.rows:
-                for cell in row.cells:
-                    if "{{" in cell.text and "}}" in cell.text:
-                        print(f"  警告: テーブル {i+1} にプレースホルダーが残っています: '{cell.text}'")
-                        placeholders_remaining.append(cell.text)
-        
-        for i, para in enumerate(doc.paragraphs):
-            if "{{" in para.text and "}}" in para.text:
-                print(f"  警告: 段落 {i+1} にプレースホルダーが残っています: '{para.text}'")
-                placeholders_remaining.append(para.text)
-        
-        if placeholders_remaining:
-            print(f"  未処理のプレースホルダーが {len(placeholders_remaining)}個 見つかりました")
-        else:
-            print("  すべてのプレースホルダーが正常に処理されました")
-        print("===== ドキュメント確認終了 =====\n")
-        
-        # 文書を保存
-        doc.save(abs_output_path)
-        print(f"テンプレート処理完了: {abs_output_path}")
-        
-        # 保存したファイルの存在確認
-        print(f"生成されたファイルの存在確認: {os.path.exists(abs_output_path)}")
-        
-        return relative_output_path
+        return output_path
     
     except Exception as e:
-        import traceback
-        print(f"テンプレート処理中にエラーが発生しました: {str(e)}")
-        traceback.print_exc()
         raise Exception(f"テンプレート処理中にエラーが発生しました: {str(e)}")
+
+def replace_placeholders_in_document(doc, replacements):
+    """
+    ドキュメント内のプレースホルダーを置換する
+    
+    Args:
+        doc (Document): docxドキュメント
+        replacements (dict): プレースホルダーと置換値のマッピング
+    """
+    # すべてのパラグラフを処理
+    for paragraph in doc.paragraphs:
+        replace_text_in_paragraph(paragraph, replacements)
+    
+    # すべてのテーブルを処理
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for paragraph in cell.paragraphs:
+                    replace_text_in_paragraph(paragraph, replacements)
+
+def replace_text_in_paragraph(paragraph, replacements):
+    """
+    パラグラフ内のプレースホルダーを置換する
+    
+    Args:
+        paragraph (Paragraph): docxパラグラフ
+        replacements (dict): プレースホルダーと置換値のマッピング
+    """
+    for placeholder, value in replacements.items():
+        if f"{{{{{placeholder}}}}}" in paragraph.text:
+            # テキスト置換のための準備
+            placeholder_text = f"{{{{{placeholder}}}}}"
+            text = paragraph.text
+            
+            # テキストを置換
+            new_text = text.replace(placeholder_text, value)
+            
+            # 古いランの保存
+            old_runs = [run for run in paragraph.runs]
+            
+            # パラグラフをクリア
+            for i in range(len(paragraph.runs)):
+                p = paragraph._p
+                p.remove(paragraph.runs[0]._r)
+            
+            # 新しいテキストを追加（スタイルを維持）
+            if old_runs:
+                # 最初のランのスタイルを使用
+                run = paragraph.add_run(new_text)
+                run.bold = old_runs[0].bold
+                run.italic = old_runs[0].italic
+                run.underline = old_runs[0].underline
+                run.font.name = old_runs[0].font.name
+                if old_runs[0].font.size:
+                    run.font.size = old_runs[0].font.size
+            else:
+                paragraph.add_run(new_text)
 
 def add_qa_table(doc, qa_data):
     """
@@ -157,57 +276,3 @@ def add_qa_table(doc, qa_data):
         row_cells = table.add_row().cells
         row_cells[0].text = qa.get('question', '')
         row_cells[1].text = qa.get('answer', '')
-
-
-def replace_table_content(doc, placeholder, content):
-    """
-    テーブル内のプレースホルダーを内容で置き換える
-    
-    Args:
-        doc (Document): docxドキュメント
-        placeholder (str): 置換対象のプレースホルダー
-        content (str): 置換する内容
-    """
-    print(f"プレースホルダー '{placeholder}' の置換を開始")
-    replaced = False
-    
-    # すべてのテーブルを検索
-    for table_idx, table in enumerate(doc.tables):
-        for row_idx, row in enumerate(table.rows):
-            for cell_idx, cell in enumerate(row.cells):
-                if placeholder in cell.text:
-                    print(f"プレースホルダーを発見: テーブル {table_idx+1}, 行 {row_idx+1}, セル {cell_idx+1}")
-                    
-                    # セルのすべてのパラグラフをクリア
-                    for p in cell.paragraphs:
-                        # 既存のパラグラフからプレースホルダーを削除
-                        if placeholder in p.text:
-                            p.text = p.text.replace(placeholder, "")
-                    
-                    # コンテンツを複数行に分割
-                    content_lines = content.split('\n')
-                    
-                    # 最初の行は既存のパラグラフに追加（あれば）
-                    if cell.paragraphs and content_lines:
-                        first_line = content_lines[0]
-                        cell.paragraphs[0].add_run(first_line)
-                        content_lines = content_lines[1:]  # 最初の行を削除
-                    
-                    # 残りの行は新しいパラグラフとして追加
-                    for line in content_lines:
-                        p = cell.add_paragraph()
-                        p.add_run(line)
-                    
-                    replaced = True
-                    print(f"プレースホルダーを '{content[:30]}...' に置換しました")
-    
-    # テーブル以外の本文も検索（必要に応じて）
-    for para in doc.paragraphs:
-        if placeholder in para.text:
-            print(f"本文内でプレースホルダーを発見")
-            para.text = para.text.replace(placeholder, content)
-            replaced = True
-            print(f"本文内のプレースホルダーを置換しました")
-    
-    if not replaced:
-        print(f"警告: プレースホルダー '{placeholder}' が見つかりませんでした")
