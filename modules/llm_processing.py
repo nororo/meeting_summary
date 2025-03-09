@@ -96,8 +96,6 @@ def summarize_text(text, api_choice='azure', method='refine', model_type='llama3
         docs = [Document(page_content=t) for t in docs]
         
         # プロンプトテンプレート
-        # 冗長なインポートは削除（ファイルの先頭で既にインポート済み）
-        
         map_template = """次の文書を要約してください:
         {text}
         
@@ -167,7 +165,12 @@ def summarize_text(text, api_choice='azure', method='refine', model_type='llama3
         result = chain.invoke(docs)
         print("要約が完了しました")
         
-        return result['output_text']
+        summary = result['output_text']
+        
+        # 英語で出力された場合は日本語に翻訳
+        summary = translate_to_japanese(summary, api_choice)
+        
+        return summary
     
     except Exception as e:
         import traceback
@@ -258,10 +261,96 @@ def question_answering(text, question, api_choice='azure', model_type='llama3'):
         })
         print("質疑応答が完了しました")
         
-        return result['output_text']
+        answer = result['output_text']
+        
+        # 英語で出力された場合は日本語に翻訳
+        answer = translate_to_japanese(answer, api_choice)
+        
+        return answer
     
     except Exception as e:
         import traceback
         print("質疑応答処理中にエラーが発生しました:")
         traceback.print_exc()
         raise Exception(f"質疑応答処理中にエラーが発生しました: {str(e)}")
+
+def translate_to_japanese(text, api_choice='azure'):
+    """
+    英語のテキストを日本語に翻訳する
+    
+    Args:
+        text (str): 翻訳するテキスト
+        api_choice (str): 使用するAPI ('azure' または 'groq')
+        
+    Returns:
+        str: 翻訳されたテキスト
+    """
+    # 既に日本語の場合はそのまま返す
+    import re
+    # 日本語文字が含まれているかチェック（ひらがな、カタカナ、漢字）
+    if re.search(r'[ぁ-んァ-ヶ一-龯]', text):
+        # 日本語の文字が20%以上含まれていれば日本語と判断
+        japanese_chars = len(re.findall(r'[ぁ-んァ-ヶ一-龯]', text))
+        if japanese_chars / len(text) > 0.2:
+            print("テキストは既に日本語です")
+            return text
+    
+    try:
+        print("英語から日本語への翻訳を開始します...")
+        
+        # LLMを選択
+        llm = None
+        try:
+            if api_choice.lower() == 'azure':
+                print("Azure OpenAI APIを使用します")
+                llm = get_azure_llm()
+            else:
+                print("Groq APIを使用します")
+                llm = get_groq_llm('llama3')
+        except Exception as llm_error:
+            print(f"選択されたAPI ({api_choice}) の初期化に失敗しました: {str(llm_error)}")
+            print("代替APIを試行します...")
+            
+            # フォールバックオプション
+            if api_choice.lower() == 'azure':
+                print("フォールバック: Groq APIを使用します")
+                llm = get_groq_llm('llama3')
+            else:
+                print("フォールバック: Azure OpenAI APIを使用します")
+                llm = get_azure_llm()
+        
+        # 翻訳プロンプトの作成
+        from langchain_core.prompts import PromptTemplate
+        translate_template = """
+        以下の英語のテキストを自然で読みやすい日本語に翻訳してください。
+        内容を損なわず、日本語として自然な表現を使ってください。
+        
+        テキスト:
+        {text}
+        
+        日本語訳:
+        """
+        
+        translate_prompt = PromptTemplate.from_template(translate_template)
+        
+        # 翻訳を実行
+        from langchain_core.output_parsers import StrOutputParser
+        from langchain.chains import LLMChain
+        
+        chain = LLMChain(
+            llm=llm,
+            prompt=translate_prompt,
+            output_parser=StrOutputParser()
+        )
+        
+        translated_text = chain.run(text=text)
+        print("翻訳が完了しました")
+        
+        return translated_text
+    
+    except Exception as e:
+        import traceback
+        print("翻訳処理中にエラーが発生しました:")
+        traceback.print_exc()
+        print(f"翻訳に失敗しました。元のテキストを返します: {str(e)}")
+        return text  # エラーの場合は元のテキストを返す
