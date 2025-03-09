@@ -295,6 +295,7 @@
                         <h2 class="h5 mb-0">結果のダウンロード</h2>
                     </div>
                     <div class="card-body">
+
                         <form id="download-form">
                             <div class="mb-3">
                                 <label class="form-label">出力形式</label>
@@ -323,9 +324,40 @@
                                 <label class="form-check-label" for="use-template">テンプレートを使用する（アップロード済みの場合）</label>
                             </div>
                             
+                            <div class="mb-3">
+                                <label class="form-label">プレースホルダー抽出用API</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="template-api" id="template-azure-api" value="azure" checked>
+                                    <label class="form-check-label" for="template-azure-api">
+                                        Azure OpenAI API
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="template-api" id="template-groq-api" value="groq">
+                                    <label class="form-check-label" for="template-groq-api">
+                                        Groq API
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3" id="template-groq-model-selection" style="display: none;">
+                                <label class="form-label">モデルの選択</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="template-groq-model" id="template-llama3-model" value="llama3" checked>
+                                    <label class="form-check-label" for="template-llama3-model">
+                                        LLama 3.3
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="template-groq-model" id="template-gemma2-model" value="gemma2">
+                                    <label class="form-check-label" for="template-gemma2-model">
+                                        Gemma-2
+                                    </label>
+                                </div>
+                            </div>
+                            
                             <button type="submit" class="btn btn-primary" id="download-btn" disabled>レポート生成</button>
                         </form>
-                        
                         <div class="loading" id="download-loading">
                             <div class="spinner-border text-primary" role="status">
                                 <span class="visually-hidden">Loading...</span>
@@ -568,6 +600,14 @@
                 });
             });
             
+            // APIの選択変更時の処理（テンプレート処理用）
+            $('input[name="template-api"]').on('change', function() {
+                if ($(this).val() === 'groq') {
+                    $('#template-groq-model-selection').show();
+                } else {
+                    $('#template-groq-model-selection').hide();
+                }
+            });
             // ダウンロードフォームの送信
             $('#download-form').on('submit', function(e) {
                 e.preventDefault();
@@ -580,6 +620,10 @@
                 // 出力形式とテンプレート使用の選択を取得
                 const outputFormat = $('input[name="output-format"]:checked').val();
                 const useTemplate = $('#use-template').is(':checked');
+                
+                // プレースホルダー抽出用のAPIとモデルの選択を取得
+                const apiChoice = $('input[name="template-api"]:checked').val();
+                const modelType = $('input[name="template-groq-model"]:checked').val();
                 
                 // ローディング表示
                 $('#download-btn').prop('disabled', true);
@@ -594,7 +638,9 @@
                         summary: summaryText,
                         qa_data: qaData,
                         template_path: useTemplate ? templatePath : null,
-                        output_format: outputFormat
+                        output_format: outputFormat,
+                        api_choice: apiChoice,
+                        model_type: modelType
                     }),
                     contentType: 'application/json',
                     success: function(response) {
