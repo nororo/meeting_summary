@@ -3,12 +3,13 @@
 初期コード生成のプロンプト、フィードバックのプロンプトとClaudeの出力はISSUEに添付しています。
 このREADME.mdの一部( <以下は生成されたREADME>より上)、ISSUE、スクリーンショット画像を除いた全てのテキストはClaude 3.7 sonnetによる出力です。
 
-
 次のステージとして、自律型生成AIエージェントのみによる完全な開発を行います。
+
+### 動作
 Google colaboratoryのみで動作確認しています。（2025/3/6時点で、Azure OpenAI APIのMap reduceはエラーが出ています）
 
-
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1rawlZkhjdfo-YKKbBmxYYbm0EjfjMVRh?usp=sharing)
+**Google colaboratoryで生成AI機能をonにすると、入力内容がAIの学習に利用されます。そのため、機密情報や個人情報をcolabノートブックへ入力及び、本アプリケーションへの入力はしないでください（ログを出力することでcolaboの生成AIへの入力となります）。**
 
 ### 以下のように、シークレットにAPIキーを設定してください。
 ![OneBigTable](docs/secret_key_setting_colab.png)
