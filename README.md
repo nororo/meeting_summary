@@ -10,10 +10,13 @@ Google Colaboratoryのみで動作確認しています。（2025/3/6時点で�
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1rawlZkhjdfo-YKKbBmxYYbm0EjfjMVRh?usp=sharing)
 
-**Google Colaboratoryで生成AI機能をonにすると、入力内容がAIの学習に利用されます。そのため、機密情報や個人情報をcolabノートブックへ入力及び、本アプリケーションへの入力はしないでください（ログを出力することでcolaboの生成AIへの入力となります）。**
+**Google Colaboratoryで生成AI機能をonにすると、入力内容がAIの学習に利用されます。そのため、機密情報や個人情報をcolabノートブックへ入力及び、本アプリケーションへの入力はしないでください（ログを出力することでcolaboの生成AIへの入力となります）。また、APIキーをノートブック上に直接書かないでください**
 
-### 以下のように、シークレットにAPIキーを設定してください。
-![OneBigTable](docs/secret_key_setting_colab.png)
+### API KEYの設定
+以下のように、シークレットにAPIキーを設定してください。
+![Key]()
+<img src="docs/secret_key_setting_colab.png" width="320px">
+
 ### APIの発行方法
 #### Deepgram
 https://deepgram.com/
