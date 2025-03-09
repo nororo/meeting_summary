@@ -63,11 +63,11 @@ def get_groq_llm(model_type):
     
     # モデルタイプに基づいてモデル名を選択
     if model_type == "llama3":
-        model_name = "llama3-8b-8192"
+        model_name = "llama-3.3-70b-versatile"
     elif model_type == "gemma2":
-        model_name = "gemma-7b-it"
+        model_name = "gemma2-9b-it"
     else:
-        model_name = "llama3-8b-8192"  # デフォルト
+        model_name = "llama-3.3-70b-versatile"  # デフォルト
     
     return ChatGroq(
         api_key=api_key,
