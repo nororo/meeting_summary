@@ -258,8 +258,45 @@ def add_qa_table(doc, qa_data):
     
     # Q&Aテーブルを作成
     table = doc.add_table(rows=1, cols=2)
-    table.style = 'Table Grid'
     
+    # テーブルスタイルの設定（エラー回避のため修正）
+    try:
+        # まずはTable Gridスタイルを試す
+        table.style = 'Table Grid'
+    except KeyError:
+        # スタイルが見つからない場合、別の一般的なスタイルを試す
+        try:
+            table.style = 'TableGrid'  # スペースなしでも試す
+        except KeyError:
+            try:
+                # LightGridスタイルを試す
+                table.style = 'LightGrid'
+            except KeyError:
+                # それでも失敗する場合はスタイル設定をスキップ
+                print("警告: テーブルスタイルの適用に失敗しました。標準スタイルを使用します。")
+    
+    # テーブルボーダーを手動で設定
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+
+    def set_cell_border(cell, border_type="single", size=4):
+        """セルに境界線を追加する"""
+        tc = cell._tc
+        tcPr = tc.get_or_add_tcPr()
+        
+        # すべての方向に境界線を追加
+        for direction in ['top', 'left', 'bottom', 'right']:
+            border_element = OxmlElement('w:{}'.format(direction))
+            border_element.set(qn('w:val'), border_type)
+            border_element.set(qn('w:sz'), str(size))
+            border_element.set(qn('w:space'), '0')
+            border_element.set(qn('w:color'), 'auto')
+            tcBorders = tcPr.first_child_found_in("w:tcBorders")
+            if tcBorders is None:
+                tcBorders = OxmlElement('w:tcBorders')
+                tcPr.append(tcBorders)
+            tcBorders.append(border_element)
+
     # ヘッダー行を設定
     hdr_cells = table.rows[0].cells
     hdr_cells[0].text = "質問"
@@ -267,12 +304,20 @@ def add_qa_table(doc, qa_data):
     
     # ヘッダー行のスタイルを設定
     for cell in hdr_cells:
+        # セルにボーダーを適用
+        set_cell_border(cell)
+        
         cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        # 太字にする
         for run in cell.paragraphs[0].runs:
-            run.font.bold = True
+            run.bold = True
     
     # Q&Aデータを追加
     for qa in qa_data:
         row_cells = table.add_row().cells
         row_cells[0].text = qa.get('question', '')
         row_cells[1].text = qa.get('answer', '')
+        
+        # 新しい行のセルにもボーダーを適用
+        for cell in row_cells:
+            set_cell_border(cell)
