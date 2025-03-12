@@ -99,7 +99,7 @@ def transcribe_with_groq(audio_path):
                 "https://api.groq.com/openai/v1/audio/transcriptions",
                 headers={"Authorization": f"Bearer {api_key}"},
                 files={"file": audio},
-                data={"model": "whisper-large-v3", "language": "ja"}
+                data={"model": "whisper-large-v3-turbo", "language": "ja"}
             )
         
         if response.status_code != 200:
