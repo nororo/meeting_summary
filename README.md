@@ -5,20 +5,20 @@
 
 次のステージとして、自律型生成AIエージェントのみによる完全な開発を行います。
 
-### 動作
+### 1. 動作
 Google Colaboratoryのみで動作確認しています。（2025/3/6時点で、Azure OpenAI APIのMap reduceはエラーが出ています）
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1rawlZkhjdfo-YKKbBmxYYbm0EjfjMVRh?usp=sharing)
 
 **Google Colaboratoryで生成AI機能をonにすると、入力内容がAIの学習に利用されます。そのため、機密情報や個人情報をcolabノートブックへ入力及び、本アプリケーションへの入力はしないでください（ログを出力することでcolaboの生成AIへの入力となります）。また、APIキーをノートブック上に直接書かないでください**
 
-### API KEYの設定
+### 2. API KEYの設定
 以下のように、シークレットにAPIキーを設定してください。
 
 
 <img src="docs/secret_key_setting_colab.png" width="640px">
 
-### APIの発行方法
+### 3. APIの発行方法
 #### Deepgram
 https://deepgram.com/
 2025/3/6時点で$200分のクレジットがもらえ無料で試すことができます。
@@ -30,7 +30,7 @@ https://groq.com/
 ### テンプレート
 Wordファイルに挿入したい場所に抽出したい内容を{{XXXX}}と記載してください（例 {{宿題}}、{{主題}}、{{決定事項}}など）。LLMによる抽出結果で置換されます。要約を挿入したい場所には{{要約}}と記載してください。
 
-### 出力の利用制限
+### 4. 出力の利用制限
 こちらのアプリケーションの出力に関して、選択したモデルによって以下の利用制限が生じます。ご確認ください。
 ##### Llamaモデルを利用した場合:
 https://github.com/meta-llama/llama-models/blob/main/models/llama3_1/LICENSE
@@ -39,8 +39,8 @@ https://ai.google.dev/gemma/terms
 ##### Azure openAI
 https://openai.com/policies/row-terms-of-use/
 
-### パフォーマンス（人間が評価を実施）
-
+### 5. パフォーマンス（人間が評価を実施）
+12個の原稿データからノイズを含む文字起こしを作成し、要約のパフォーマンスを簡単に評価しています（サンプルサイズが少ないため解釈は限定的になります）。
 元原稿データをGoogle text-to-speech (Gtts)で読み上げ、3段階のホワイトノイズを付与した音声データセットを作成し、Whisper-V3-largeによりノイズ有り文字起こしデータセットを作成します。
 ノイズ有り文字起こしデータを各LLMにインプットし、要約を作成します。
 ``` prompt
