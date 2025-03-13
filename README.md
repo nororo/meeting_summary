@@ -30,16 +30,8 @@ https://groq.com/
 ### テンプレート
 Wordファイルに挿入したい場所に抽出したい内容を{{XXXX}}と記載してください（例 {{宿題}}、{{主題}}、{{決定事項}}など）。LLMによる抽出結果で置換されます。要約を挿入したい場所には{{要約}}と記載してください。
 
-### 4. 出力の利用制限
-こちらのアプリケーションの出力に関して、選択したモデルによって以下の利用制限が生じます。ご確認ください。
-##### Llamaモデルを利用した場合:
-https://github.com/meta-llama/llama-models/blob/main/models/llama3_1/LICENSE
-##### Gemmaモデルを利用した場合:
-https://ai.google.dev/gemma/terms
-##### Azure openAI
-https://openai.com/policies/row-terms-of-use/
 
-### 5. パフォーマンス（人間が評価を実施。モデル選択の参考にしてください。）
+### 4. パフォーマンス（人間が評価を実施。モデル選択の参考にしてください。）
 12個の原稿データからノイズを含む文字起こしを作成し、要約のパフォーマンスを簡単に評価しています（サンプルサイズが少ないため解釈は限定的になります）。
 元原稿データをGoogle text-to-speech (Gtts)で読み上げ、3段階のホワイトノイズを付与した音声データセットを作成し、Whisper-V3-largeによりノイズ有り文字起こしデータセットを作成します。
 ノイズ有り文字起こしデータを各LLMにインプットし、要約を作成します。
@@ -65,10 +57,18 @@ LLM-as-a-judge (gpt-4o)による元原稿データからの逸脱の少なさを
 gpt-4oはノイズにより誤理を含む文字起こしに対して比較的ロバストである
 <img src="docs/resources.png" width="640px">
 
+### 5. 出力の利用制限
+こちらのアプリケーションの出力に関して、選択したモデルによって以下の利用制限が生じます。ご確認ください。
+##### Llamaモデルを利用した場合:
+https://github.com/meta-llama/llama-models/blob/main/models/llama3_1/LICENSE
+##### Gemmaモデルを利用した場合:
+https://ai.google.dev/gemma/terms
+##### Azure openAI
+https://openai.com/policies/row-terms-of-use/
 
-# <以下は生成されたREADME>
+## <以下は生成されたREADME>
 
-# 音声文字起こし・要約Q&Aアプリケーション
+## 音声文字起こし・要約Q&Aアプリケーション
 
 このアプリケーションは音声ファイルから文字起こしを行い、LLMを用いた要約や質疑応答機能を提供するウェブアプリケーションです。
 
