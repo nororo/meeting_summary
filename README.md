@@ -39,10 +39,10 @@ Wordファイルに挿入したい場所に抽出したい内容を{{XXXX}}と�
 次は音声から文字起こしをしたものです。似た音の単語を誤認識している可能性に注意して日本語で要約してください。
 ```
 
-#### Question-Answering Accuracy
+#### Question-Answering Accuracy (網羅性・正確性の評価)
 元原稿データから(Question, Answer)ペアをGPT-4oで生成し、提供された要約を根拠に生成したQuestionに回答できるかで評価。回答の一致はRouge-f1値により判定し、平均値[0,1]で評価
 
-#### Faithfulness Hallucination
+#### Faithfulness Hallucination (ハルシネーションの評価)
 LLM-as-a-judge (gpt-4o)による元原稿データからの逸脱の少なさを5段階で評価
 
 ##### 評価スケール
